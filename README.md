@@ -10,9 +10,9 @@ Calculateur photo dans le navigateur. À partir d’un capteur, d’un objectif,
 
 MyLens ne nécessite aucune installation : il s’agit d’un unique fichier `lens.html`.
 
-Téléchargez le fichier [`lens.html`](https://github.com/NicolasBedouin/MyLens/lens.html?inline=false), puis ouvrez-le dans votre navigateur (Chrome, Firefox, Edge, Safari…).
+Téléchargez le fichier [`lens.html`](lens.html?inline=false), puis ouvrez-le dans votre navigateur (Chrome, Firefox, Edge, Safari…).
 
-## Utilisation basique
+## Utilisation
 
 L’interface est organisée en trois panneaux :
 
