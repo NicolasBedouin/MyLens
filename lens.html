@@ -1,0 +1,956 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>MyLens — calculateur photo</title>
+<style>
+  :root {
+    --bg: #f3f5f8;
+    --panel: #ffffff;
+    --panel-alt: #fbfcfd;
+    --border: #e1e5ea;
+    --border-strong: #cdd3da;
+    --text: #1e2530;
+    --muted: #6b7785;
+    --accent: #0066c5;
+    --accent-soft: #e6f0fa;
+    --danger: #ff6a25;
+    --focus: #d00000;
+    --good-bg: #eaf4ec;
+    --good-border: #b9d9bf;
+    --good-text: #1f6b3a;
+    --shadow: 0 1px 2px rgba(20,30,50,0.04), 0 2px 8px rgba(20,30,50,0.04);
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0;
+    padding: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: "Segoe UI", system-ui, -apple-system, "Helvetica Neue", sans-serif;
+    font-size: 14px;
+    line-height: 1.45;
+  }
+  .app {
+    max-width: 800px;
+    margin: 0 auto;
+    padding: 20px 16px 32px;
+  }
+  header.app-header {
+    margin-bottom: 18px;
+  }
+  header.app-header h1 {
+    font-size: 22px;
+    font-weight: 600;
+    margin: 0 0 4px 0;
+    color: var(--text);
+    letter-spacing: -0.01em;
+  }
+  header.app-header h1 .accent { color: var(--accent); }
+  header.app-header p {
+    margin: 0;
+    color: var(--muted);
+    font-size: 13px;
+  }
+  .panel {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 16px 18px;
+    margin-bottom: 14px;
+    box-shadow: var(--shadow);
+  }
+  .panel-title {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+    margin: 0 0 12px 0;
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--muted);
+  }
+  .panel-title .num {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    background: var(--accent-soft);
+    color: var(--accent);
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0;
+  }
+  .row {
+    display: grid;
+    grid-template-columns: 2fr 2fr 1fr;
+    gap: 12px;
+    align-items: end;
+  }
+  .row.confusion {
+    grid-template-columns: 2fr 1fr;
+  }
+  .row.pixels {
+    grid-template-columns: 2fr 1fr;
+    align-items: end;
+  }
+  .field {
+    display: flex;
+    flex-direction: column;
+  }
+  label {
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--text);
+    margin-bottom: 5px;
+  }
+  label .hint {
+    color: var(--muted);
+    font-weight: 400;
+    margin-left: 4px;
+  }
+  select, input[type="number"] {
+    font: inherit;
+    padding: 7px 9px;
+    border: 1px solid var(--border-strong);
+    border-radius: 6px;
+    background: white;
+    color: var(--text);
+    width: 100%;
+    transition: border-color 0.15s, box-shadow 0.15s;
+  }
+  select:hover, input[type="number"]:hover {
+    border-color: #aab2bd;
+  }
+  select:focus, input[type="number"]:focus {
+    outline: none;
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px rgba(0,102,197,0.15);
+  }
+  .help {
+    font-size: 11.5px;
+    color: var(--muted);
+    margin: 6px 0 0 0;
+    line-height: 1.4;
+  }
+  .slider-block { margin-top: 14px; }
+  .slider-block:first-child { margin-top: 0; }
+  .slider-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    margin-bottom: 6px;
+    gap: 12px;
+  }
+  .slider-head label { margin: 0; }
+  .slider-value {
+    font-weight: 600;
+    font-size: 14px;
+    color: var(--accent);
+    font-variant-numeric: tabular-nums;
+  }
+  .slider-value .unit {
+    font-weight: 400;
+    color: var(--muted);
+    font-size: 12px;
+    margin-left: 2px;
+  }
+  .focus { color: var(--focus); }
+  .slider-value.warn { color: var(--danger); }
+  .svg-host {
+    width: 100%;
+    user-select: none;
+    -webkit-user-select: none;
+    display: block;
+  }
+  .svg-host text { font-family: inherit; }
+  .svg-host.draggable { cursor: pointer; touch-action: none; }
+  .result-card {
+    margin-top: 12px;
+    padding: 10px 14px;
+    background: var(--good-bg);
+    border: 1px solid var(--good-border);
+    border-radius: 8px;
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 10px;
+  }
+  .result-card .result-label {
+    font-size: 12px;
+    color: var(--good-text);
+    font-weight: 500;
+  }
+  .result-card .result-value {
+    font-size: 16px;
+    font-weight: 600;
+    color: var(--good-text);
+    font-variant-numeric: tabular-nums;
+  }
+  .fov-wrap {
+    display: flex;
+    justify-content: center;
+    padding: 6px 0 4px 0;
+  }
+  .fov-readouts {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 8px;
+    margin-top: 10px;
+  }
+  .fov-readouts .stat {
+    background: var(--panel-alt);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 8px 10px;
+    text-align: center;
+  }
+  .fov-readouts .stat-label {
+    display: block;
+    font-size: 11px;
+    color: var(--muted);
+    margin-bottom: 2px;
+  }
+  .fov-readouts .stat-value {
+    display: block;
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text);
+    font-variant-numeric: tabular-nums;
+  }
+  .pixel-readout {
+    margin-top: 10px;
+    font-size: 13px;
+    color: var(--muted);
+  }
+  .pixel-readout strong {
+    color: var(--text);
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+  }
+  .legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    font-size: 11.5px;
+    color: var(--muted);
+    margin-top: 6px;
+  }
+  .legend .sw {
+    display: inline-block;
+    width: 12px;
+    height: 4px;
+    border-radius: 2px;
+    vertical-align: middle;
+    margin-right: 4px;
+  }
+  footer {
+    margin-top: 20px;
+    text-align: center;
+    color: var(--muted);
+    font-size: 11px;
+  }
+  @media (max-width: 560px) {
+    .row { grid-template-columns: 1fr 1fr; }
+    .row .field:first-child { grid-column: 1 / -1; }
+    .row.confusion, .row.pixels { grid-template-columns: 1fr; }
+    .fov-readouts { grid-template-columns: 1fr 1fr 1fr; }
+    header.app-header h1 { font-size: 19px; }
+  }
+</style>
+</head>
+<body>
+<div class="app">
+  <header class="app-header">
+    <h1><span class="accent">MyLens</span> — calculateur photo</h1>
+    <p>Choisissez votre matériel, ajustez la mise au point et l’ouverture : la profondeur de champ et le cadrage sont calculés en temps réel.</p>
+  </header>
+
+  <section class="panel">
+    <div class="panel-title"><span class="num">1</span> Matériel</div>
+    <div class="row">
+      <div class="field">
+        <label for="sensor">Capteur</label>
+        <select id="sensor"></select>
+      </div>
+      <div class="field">
+        <label for="lens">Objectif</label>
+        <select id="lens"></select>
+      </div>
+      <div class="field">
+        <label for="focal">Focale (mm)</label>
+        <input type="number" id="focal" min="1" max="1000" step="0.1" value="24">
+      </div>
+    </div>
+    <p class="help">Le capteur et la focale déterminent l’angle de champ et la zone couverte par l’image.</p>
+  </section>
+
+  <section class="panel">
+    <div class="panel-title"><span class="num">2</span> Mise au point</div>
+
+    <div class="row confusion">
+      <div class="field">
+        <label for="confusion">Critère de netteté <span class="hint">(cercle de confusion)</span></label>
+        <select id="confusion">
+          <option>Photo numérique</option>
+          <option>Zeiss</option>
+          <option>Personnalisé...</option>
+        </select>
+      </div>
+      <div class="field">
+        <label for="confusion-size">Diamètre (µm)</label>
+        <input type="number" id="confusion-size" min="0.1" max="100" step="0.1" value="20">
+      </div>
+    </div>
+    <p class="help">Tolérance maximale de flou perçu comme net. « Photo numérique » convient à la plupart des cas ; « Zeiss » est plus exigeant.</p>
+
+    <div class="slider-block">
+      <div class="slider-head">
+        <label for="dof-svg">Distance de mise au point</label>
+        <div class="slider-value focus" id="focus-current">3 m</div>
+      </div>
+      <svg class="svg-host draggable" id="dof-svg" viewBox="0 0 600 58" preserveAspectRatio="none" height="58" aria-label="Curseur de distance de mise au point"></svg>
+      <div class="legend">
+        <span><span class="sw" style="background:var(--accent)"></span>Zone nette</span>
+        <span><span class="sw" style="background:#d3e5f3"></span>Zone hyperfocale (netteté jusqu’à l’infini)</span>
+      </div>
+    </div>
+
+    <div class="slider-block">
+      <div class="slider-head">
+        <label for="fn-svg">Ouverture</label>
+        <div class="slider-value" id="fnumber-current">f/8</div>
+      </div>
+      <svg class="svg-host draggable" id="fn-svg" viewBox="0 0 600 27" preserveAspectRatio="none" height="27" aria-label="Curseur d’ouverture"></svg>
+      <p class="help" id="diffraction-help" style="margin-top:6px">Une ouverture affichée en <span style="color:var(--danger);font-weight:600">orange</span> signale une perte de netteté due à la diffraction.</p>
+    </div>
+
+    <div class="result-card">
+      <span class="result-label">Profondeur de champ</span>
+      <span class="result-value" id="dof-readout">—</span>
+    </div>
+  </section>
+
+  <section class="panel">
+    <div class="panel-title"><span class="num">3</span> Cadrage</div>
+
+    <div class="fov-wrap">
+      <svg class="svg-host" id="fov-svg" width="300" height="142" viewBox="0 0 300 142" aria-label="Schéma de l’angle de champ"></svg>
+    </div>
+
+    <div class="fov-readouts">
+      <div class="stat">
+        <span class="stat-label">Angle de champ</span>
+        <span class="stat-value" id="fov-angle">—</span>
+      </div>
+      <div class="stat">
+        <span class="stat-label">Largeur cadrée</span>
+        <span class="stat-value" id="fov-width">—</span>
+      </div>
+      <div class="stat">
+        <span class="stat-label">Hauteur cadrée</span>
+        <span class="stat-value" id="fov-height">—</span>
+      </div>
+    </div>
+
+    <div class="row pixels" style="margin-top: 14px">
+      <div class="field">
+        <label for="image-width">Définition horizontale de l’image <span class="hint">(en pixels)</span></label>
+        <input type="number" id="image-width" min="10" max="10000" step="1" value="1634">
+      </div>
+    </div>
+    <p class="pixel-readout" id="pixel-readout">Taille d’un pixel sur la scène : <strong>—</strong></p>
+  </section>
+
+  <footer>MyLens · calculs basés sur les formules optiques classiques (hyperfocale, cercle de confusion, limite de diffraction d’Airy).</footer>
+</div>
+
+<script>
+// ---------------------------------------------------------------------------
+// Constantes
+// ---------------------------------------------------------------------------
+const SENSOR_SIZES = {
+  "Basler acA1600-20gc (5,4 × 7,1 mm)":   [7.1456, 5.4296],
+  "IDS uEye XC (3,43, × 4,63 mm)":        [4.629, 3.432],
+  "1/2\" industriel (8 × 10 mm)":         [10.0, 8.0],
+  "Micro 4/3 (13 × 17,3 mm)":             [17.3, 13.0],
+  "Canon APS-C (14,8 × 22,2 mm)":         [22.2, 14.8],
+  "Nikon DX (15,7 × 23,6 mm)":            [23.6, 15.7],
+  "Plein format (24 × 36 mm)":            [36.0, 24.0],
+  "Moyen format (33 × 44 mm)":            [44.0, 33.0],
+};
+
+const LENS_FOCALS = {
+  "IDS uEye XC 3,81 mm":    3.81,
+  "Grand-angle 16 mm":      16.0,
+  "Standard 24 mm":         24.0,
+  "Standard 35 mm":         35.0,
+  "Normal 50 mm":           50.0,
+  "Portrait 85 mm":         85.0,
+  "Téléobjectif 135 mm":   135.0,
+  "Téléobjectif 200 mm":   200.0,
+  "Personnalisé...":        35.0,
+};
+
+// Valeurs réelles d’ouverture (2^((i+3)/6))
+const F_TRUE = [];
+const F_DISPLAY = [1.4, 1.6, 1.8, 2.0, 2.2, 2.5, 2.8, 3.2, 3.5, 4.0, 4.5, 5.0, 5.6, 6.3, 7.1, 8.0, 9.0, 10.0, 11.0, 13.0, 14.0, 16.0, 18.0, 20.0, 22.0];
+for (let i = 0; i < 25; i++) F_TRUE.push(Math.pow(2, (i + 3) / 6));
+
+// ---------------------------------------------------------------------------
+// État
+// ---------------------------------------------------------------------------
+const state = {
+  sensorKey: "1/2\" industriel (8 × 10 mm)",
+  lensKey: "Personnalisé...",
+  focal: 16.0,
+  confusionMode: "DIGITAL",  // DIGITAL | ZEISS | CUSTOM
+  confusionMm: 0.0089,
+  fIndex: 8,                 // index dans F_TRUE / F_DISPLAY → 8.0
+  focusDistance: 3.0,         // m
+  imageWidthPx: 4200
+};
+
+// ---------------------------------------------------------------------------
+// Calculs
+// ---------------------------------------------------------------------------
+function sensorWH() { return SENSOR_SIZES[state.sensorKey]; }
+
+function confusionSizeMm(option) {
+  const [w, h] = sensorWH();
+  const d = Math.sqrt(w * w + h * h);
+  return option === 'ZEISS' ? d / 1730 : d / 1442;
+}
+
+function fNumber() { return F_TRUE[state.fIndex]; }
+
+function focusPlaneWidth() {
+  const [w] = sensorWH();
+  return (state.focusDistance - 0.001 * state.focal) * w / state.focal;
+}
+function focusPlaneHeight() {
+  const [, h] = sensorWH();
+  return (state.focusDistance - 0.001 * state.focal) * h / state.focal;
+}
+function fovAngleDeg() {
+  const [w, h] = sensorWH();
+  const f = state.focal, s = state.focusDistance * 1000;  // mm
+  const v = s * f / (s - f);                              // distance image
+  return 2 * Math.atan(Math.sqrt(w * w + h * h) / (2 * v)) * 180 / Math.PI;
+}
+
+function hyperfocalM() {
+  const f = state.focal, N = fNumber(), c = state.confusionMm;
+  return (f + (f * f) / (N * c)) / 1000;
+}
+function nearDistanceM() {
+  const s = state.focusDistance, f = state.focal, H = hyperfocalM();
+  return s * (H - f / 1000) / (H + s - 2 * f / 1000);
+}
+function farDistanceM() {
+  const s = state.focusDistance, f = state.focal, H = hyperfocalM();
+  if (H - s <= 0) return Infinity;
+  return s * (H - f / 1000) / (H - s);
+}
+function minimumFocusDistanceM() {
+  const Dn = 0.125, f = state.focal, N = fNumber(), c = state.confusionMm;
+  const H = f + (f * f) / (N * c);
+  return Dn * (2 * f - H) / (1000 * Dn + f - H);
+}
+
+function airyDiscMm(N) {
+  const lambda = 550e-9;
+  return 2.44 * lambda * N * 1000;
+}
+
+// Échelle non linéaire de la barre DOF
+const DOF_ORIGIN = 0.125;
+const DOF_MAX_M = 999.0;
+function scaleIn(xMeters) {
+  if (xMeters < DOF_ORIGIN) return 0.0;
+  const a = Math.exp(Math.pow(DOF_ORIGIN, 1 / 3));
+  return 1.0 - a * Math.exp(-Math.pow(xMeters, 1 / 3));
+}
+function scaleOut(yPc) {
+  if (yPc < 0) return DOF_ORIGIN;
+  if (yPc >= 1) return DOF_MAX_M;
+  const a = Math.exp(Math.pow(DOF_ORIGIN, 1 / 3));
+  return Math.pow(Math.log(-a / (yPc - 1)), 3);
+}
+
+function clamp(x, vmin, vmax) {
+  return Math.max(vmin, Math.min(vmax, x));
+}
+
+// ---------------------------------------------------------------------------
+// Formatage distances
+// ---------------------------------------------------------------------------
+function fmt3g(x) {
+  if (!isFinite(x)) return String(x);
+  if (x === 0) return "0";
+  // imitation du %.3g de Python
+  const abs = Math.abs(x);
+  const exp = Math.floor(Math.log10(abs));
+  if (exp >= -4 && exp < 3) {
+    const digits = Math.max(0, 2 - exp);
+    let s = x.toFixed(digits);
+    if (s.indexOf('.') >= 0) s = s.replace(/0+$/, '').replace(/\.$/, '');
+    return s;
+  }
+  return x.toExponential(2);
+}
+
+function formatDistance(m, infinityLimit = 1e6) {
+  const abs = Math.abs(m);
+  if (abs < 0.001 && abs < infinityLimit) return (m * 1e6).toFixed(3) + ' µm';
+  if (abs < 0.01 && abs < infinityLimit) return fmt3g(m * 1000) + ' mm';
+  if (abs < 1 && abs < infinityLimit) return fmt3g(m * 100) + ' cm';
+  if (abs < 1000 && abs < infinityLimit) return fmt3g(m) + ' m';
+  if (abs < infinityLimit) return fmt3g(m / 1000) + ' km';
+  return m >= 0 ? 'inf' : '-inf';
+}
+
+// ---------------------------------------------------------------------------
+// Palette SVG (harmonisée avec le CSS de la page)
+// ---------------------------------------------------------------------------
+const PAL = {
+  panel:        '#fbfcfd',  // fond des barres (≈ var(--panel-alt))
+  border:       '#cdd3da',  // contours (≈ var(--border-strong))
+  text:         '#1e2530',  // texte principal (≈ var(--text))
+  muted:        '#6b7785',  // texte secondaire (≈ var(--muted))
+  accent:       '#0066c5',  // bleu accent (= var(--accent))
+  hyperfocal:   '#d3e5f3',  // zone hyperfocale (variante claire de l'accent)
+  focusLine:    '#c43a3a',  // rouge mise au point (un peu adouci)
+  warn:         '#ff6a25',  // ouverture diffraction-limitée
+  rayFill:      '#fff5d6',  // cône de lumière (chaud, contraste assumé)
+  rayStroke:    '#e8b829',  // contour cône
+  lensFill:     '#f3ecd1',  // plan focal derrière le cône
+  lensStroke:   '#c0ad71',
+  bodyFill:     '#eef1f4',  // plan focal → gris neutre
+  bodyStroke:   '#1e2530',
+};
+
+// ---------------------------------------------------------------------------
+// Rendu SVG — Angle de champ
+// ---------------------------------------------------------------------------
+function renderFov() {
+  const svg = document.getElementById('fov-svg');
+  const w = 300, h = 142;
+  const focusNum = fmt3g(state.focusDistance);
+  const wNum = fmt3g(focusPlaneWidth());
+  const hNum = fmt3g(focusPlaneHeight());
+  const angleNum = fmt3g(fovAngleDeg());
+  svg.innerHTML = `
+    <g transform="translate(0.5,0.5)">
+      <rect fill="${PAL.panel}" stroke="${PAL.border}" stroke-width="1" x="0" y="0" width="${w-1}" height="${h-1}" rx="6" ry="6"/>
+      <path fill="${PAL.rayFill}" d="M 15,70 l 150,-60 80,120 z"/>
+      <path fill="${PAL.lensFill}" d="M 165,10 l 80,120 l -80,-42 z"/>
+      <path fill="${PAL.bodyFill}" d="M 165,10 l 80,40 v 80 z"/>
+      <path fill="none" stroke="${PAL.rayStroke}" stroke-width="1" d="M 15,70 l 150,-60 80,120 z"/>
+      <path fill="none" stroke="${PAL.focusLine}" stroke-width="1" stroke-dasharray="5,5" d="M 20,70 h 185"/>
+      <path fill="none" stroke="${PAL.bodyStroke}" stroke-width="1" d="M 165,10 l 80,40 v 80"/>
+      <path fill="none" stroke="${PAL.lensStroke}" stroke-width="1" d="M 165,10 v 78 l 80,42"/>
+      <g transform="translate(91,63)">
+        <rect fill="${PAL.panel}" stroke="${PAL.focusLine}" stroke-width="1" x="0" y="0" width="38" height="14" rx="4" ry="4"/>
+        <text x="19" y="10.5" text-anchor="middle" font-size="10" fill="${PAL.focusLine}">${focusNum} m</text>
+      </g>
+      <g transform="translate(200,20)">
+        <text x="0" y="0" font-size="12" fill="${PAL.text}">${wNum} m</text>
+      </g>
+      <g transform="translate(250,93)">
+        <text x="0" y="0" font-size="12" fill="${PAL.text}">${hNum} m</text>
+      </g>
+      <g transform="translate(0,60)">
+        <path fill="none" stroke="${PAL.text}" stroke-width="1" d="M 30,-2 c 14,4,18,15,14,26"/>
+        <text x="35" y="-10" text-anchor="middle" font-size="12" fill="${PAL.text}">${angleNum} °</text>
+      </g>
+    </g>`;
+}
+
+// ---------------------------------------------------------------------------
+// Rendu SVG — Barre d’ouverture (f-number)
+// ---------------------------------------------------------------------------
+function renderFnumber() {
+  const svg = document.getElementById('fn-svg');
+  const width = svg.clientWidth || 600;
+  // Ajuste le viewBox pour que les coordonnées correspondent aux pixels affichés
+  svg.setAttribute('viewBox', `0 0 ${width} 27`);
+  const h = 27;
+  const dWidth = width - 1 - 30;
+  const steps = F_DISPLAY.length;
+  const value = state.fIndex;
+  const fNumPx = Math.round(15 + dWidth * value / (steps - 1));
+  const conf = state.confusionMm;
+
+  let parts = [];
+  parts.push(`<g transform="translate(0.5,0.5)">
+    <rect fill="${PAL.panel}" stroke="${PAL.border}" stroke-width="1" x="0" y="0" width="${width-1}" height="26" rx="6" ry="6"/>
+    <text x="28" y="16.5" font-size="10" fill="${PAL.accent}">f ⁄</text>`);
+
+  for (let i = 0; i < steps; i++) {
+    const isMajor = (i % 3) === 0;
+    const color = (airyDiscMm(F_TRUE[i]) > conf) ? PAL.warn : PAL.text;
+    const x = Math.round(15 + dWidth * i / (steps - 1));
+    if (isMajor) {
+      parts.push(`<text x="${x}" y="17" text-anchor="middle" font-size="12" fill="${color}">${fmt3g(F_DISPLAY[i])}</text>`);
+    } else {
+      parts.push(`<text x="${x}" y="17" text-anchor="middle" font-size="12" fill="${color}">·</text>`);
+    }
+  }
+
+  const cursorColor = (airyDiscMm(F_TRUE[value]) > conf) ? PAL.warn : PAL.accent;
+  parts.push(`
+    <g>
+      <line stroke="${cursorColor}" stroke-width="1" x1="${fNumPx}" y1="0" x2="${fNumPx}" y2="26"/>
+      <rect fill="#ffffff" stroke="${cursorColor}" stroke-width="1" x="${fNumPx - 13}" y="6" width="26" height="14" rx="4" ry="4"/>
+      <text x="${fNumPx}" y="16.5" text-anchor="middle" font-size="10" fill="${cursorColor}">${fmt3g(F_DISPLAY[value])}</text>
+    </g>
+  </g>`);
+  svg.innerHTML = parts.join('\n');
+}
+
+// ---------------------------------------------------------------------------
+// Rendu SVG — Barre DOF
+// ---------------------------------------------------------------------------
+function renderDof() {
+  const svg = document.getElementById('dof-svg');
+  const width = svg.clientWidth || 600;
+  svg.setAttribute('viewBox', `0 0 ${width} 58`);
+  const h = 58;
+  const dWidth = width - 30 - 2;
+
+  const s = state.focusDistance;
+  const f = state.focal;
+  const N = fNumber();
+  const c = state.confusionMm;
+  const H = (f + (f * f) / (N * c)) / 1000;
+  const Dn = s * (H - f / 1000) / (H + s - 2 * f / 1000);
+  const Df = (H - s <= 0) ? Infinity : s * (H - f / 1000) / (H - s);
+  const Dn_h = H / 2;
+
+  const dofValues = [DOF_ORIGIN, 0.25, 1, 2, 3, 4, 6, 10, 20, 50].filter((v, idx) => idx === 0 || v > DOF_ORIGIN);
+  const dofMinors = [0.5, 1.5, 2.5, 5].filter(v => v > DOF_ORIGIN);
+
+  const DnHPx = Math.round(15 + dWidth * scaleIn(Dn_h));
+  const HPx = Math.round(15 + dWidth * scaleIn(H));
+  const focusPx = Math.round(15 + dWidth * scaleIn(s));
+  const DnPx = Math.round(15 + dWidth * scaleIn(Dn));
+  const DfPx = Math.round(15 + dWidth * scaleIn(Df));
+  const dofPx = (Df >= 999.5) ? (Math.round(width - 1 + 5) - DnPx) : (DfPx - DnPx);
+
+  const spacing = DfPx - DnPx;
+  let offset1 = (spacing < 30) ? Math.floor((30 - spacing) / 2) : 0;
+  let offset2 = 0;
+  if (DnPx - offset1 < 15) offset2 = 15 - (DnPx - offset1);
+  else if (DfPx + offset1 > (width - 1 - 15)) offset2 = (width - 1 - 15) - (DfPx + offset1);
+
+  const DfStr = (Df >= 999.5) ? '∞' : fmt3g(Df);
+  const DnStr = fmt3g(Dn);
+
+  let parts = [];
+  parts.push(`<g transform="translate(0.5,25.5)">
+    <rect fill="${PAL.panel}" stroke="none" x="0" y="0" width="${width-1}" height="26" rx="6" ry="6"/>
+    <path fill="${PAL.hyperfocal}" stroke="none" d="M ${DnHPx},22 h ${width - 1 - DnHPx} a 4,4 0 0 1 -4,4 h ${-(width - 1 - DnHPx - 4)} z"/>
+    <line stroke="${PAL.accent}" stroke-width="1" x1="${HPx}" y1="22" x2="${HPx}" y2="26"/>
+    <rect fill="none" stroke="${PAL.border}" stroke-width="1" x="0" y="0" width="${width-1}" height="26" rx="6" ry="6"/>
+    <text x="32" y="16" font-size="10" fill="${PAL.focusLine}">m</text>`);
+
+  for (const v of dofValues) {
+    const px = Math.round(15 + dWidth * scaleIn(v));
+    parts.push(`<text x="${px}" y="17" text-anchor="middle" font-size="12" fill="${PAL.text}">${fmt3g(v)}</text>`);
+  }
+  for (const v of dofMinors) {
+    const px = Math.round(15 + dWidth * scaleIn(v));
+    parts.push(`<text x="${px}" y="17" text-anchor="middle" font-size="12" fill="${PAL.text}">·</text>`);
+  }
+  parts.push(`<text x="${Math.round(width - 1 - 15)}" y="17" text-anchor="middle" font-size="12" fill="${PAL.text}">∞</text>`);
+
+  parts.push(`<g>
+    <rect fill="none" stroke="${PAL.accent}" stroke-width="1" x="${DnPx}" y="-6" width="${dofPx}" height="38" rx="4" ry="4"/>
+    <line stroke="${PAL.focusLine}" stroke-width="1" x1="${focusPx}" y1="-6" x2="${focusPx}" y2="32"/>
+    <g transform="translate(0,-25)">
+      <line stroke="${PAL.accent}" stroke-width="1" x1="${DnPx}" y1="11" x2="${DnPx}" y2="18"/>
+      <rect fill="${PAL.accent}" stroke="${PAL.accent}" stroke-width="1" x="${DnPx - 15 - offset1 + offset2}" y="0" width="30" height="14" rx="4" ry="4"/>
+      <text x="${DnPx - offset1 + offset2}" y="10" text-anchor="middle" font-size="10" fill="#ffffff">${DnStr}</text>
+    </g>
+    <g transform="translate(0,-25)">
+      <line stroke="${PAL.accent}" stroke-width="1" x1="${DfPx}" y1="11" x2="${DfPx}" y2="18"/>
+      <rect fill="${PAL.accent}" stroke="${PAL.accent}" stroke-width="1" x="${DfPx - 15 + offset1 + offset2}" y="0" width="30" height="14" rx="4" ry="4"/>
+      <text x="${DfPx + offset1 + offset2}" y="10" text-anchor="middle" font-size="10" fill="#ffffff">${DfStr}</text>
+    </g>
+    <g transform="translate(0,6)">
+      <rect fill="#ffffff" stroke="${PAL.focusLine}" stroke-width="1" x="${focusPx - 15}" y="0" width="30" height="14" rx="4" ry="4"/>
+      <text x="${focusPx}" y="10.5" text-anchor="middle" font-size="10" fill="${PAL.focusLine}">${fmt3g(s)}</text>
+    </g>
+  </g>
+</g>`);
+  svg.innerHTML = parts.join('\n');
+}
+
+// ---------------------------------------------------------------------------
+// Mises à jour des libellés
+// ---------------------------------------------------------------------------
+function updateDofReadout() {
+  const dof = farDistanceM() - nearDistanceM();
+  const formatted = formatDistance(dof, 999.5);
+  document.getElementById('dof-readout').textContent =
+    (formatted === 'inf') ? 'infinie' : formatted;
+}
+
+function updatePixelReadout() {
+  const px = state.imageWidthPx;
+  const equ = focusPlaneWidth() / px;
+  const formatted = formatDistance(equ, 1000);
+  const el = document.getElementById('pixel-readout');
+  const strong = (formatted === 'inf') ? '> 1 km' : formatted;
+  el.innerHTML = `Taille d’un pixel sur la scène : <strong>${strong}</strong>`;
+}
+
+function updateFocusReadout() {
+  document.getElementById('focus-current').innerHTML =
+    formatDistance(state.focusDistance, 999.5).replace(/ ([^ ]+)$/, ' <span class="unit">$1</span>');
+}
+
+function updateFnumberReadout() {
+  const el = document.getElementById('fnumber-current');
+  const v = F_DISPLAY[state.fIndex];
+  const warn = airyDiscMm(F_TRUE[state.fIndex]) > state.confusionMm;
+  el.textContent = `f/${fmt3g(v)}`;
+  el.classList.toggle('warn', warn);
+}
+
+function updateFovReadouts() {
+  document.getElementById('fov-angle').textContent = fmt3g(fovAngleDeg()) + ' °';
+  document.getElementById('fov-width').textContent = formatDistance(focusPlaneWidth(), 1e6);
+  document.getElementById('fov-height').textContent = formatDistance(focusPlaneHeight(), 1e6);
+}
+
+function renderAll() {
+  renderFov();
+  renderFnumber();
+  renderDof();
+  updateDofReadout();
+  updatePixelReadout();
+  updateFocusReadout();
+  updateFnumberReadout();
+  updateFovReadouts();
+  updateConfusionCombo();
+}
+
+// ---------------------------------------------------------------------------
+// Mise à jour du libellé du combo cercle de confusion (selon le capteur)
+// ---------------------------------------------------------------------------
+function updateConfusionCombo() {
+  const sel = document.getElementById('confusion');
+  const c1 = confusionSizeMm('DIGITAL');
+  const c2 = confusionSizeMm('ZEISS');
+  sel.options[0].text = `Photo numérique (${(c1 * 1000).toFixed(1)} μm)`;
+  sel.options[1].text = `Zeiss (${(c2 * 1000).toFixed(1)} μm)`;
+  sel.options[2].text = 'Personnalisé...';
+  // re-synchronise selectedIndex sans déclencher d’event
+  const map = { DIGITAL: 0, ZEISS: 1, CUSTOM: 2 };
+  sel.selectedIndex = map[state.confusionMode];
+}
+
+// ---------------------------------------------------------------------------
+// Persistance (localStorage)
+// ---------------------------------------------------------------------------
+const STORAGE_KEY = 'mylens.settings.v1';
+function saveSettings() {
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+  } catch (e) { /* ignore */ }
+}
+function loadSettings() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (!raw) return;
+    const saved = JSON.parse(raw);
+    Object.assign(state, saved);
+  } catch (e) { /* ignore */ }
+}
+
+// ---------------------------------------------------------------------------
+// Initialisation des contrôles
+// ---------------------------------------------------------------------------
+function initSelects() {
+  const sensorSel = document.getElementById('sensor');
+  for (const k of Object.keys(SENSOR_SIZES)) {
+    const opt = document.createElement('option');
+    opt.value = k; opt.textContent = k;
+    sensorSel.appendChild(opt);
+  }
+  sensorSel.value = state.sensorKey;
+
+  const lensSel = document.getElementById('lens');
+  for (const k of Object.keys(LENS_FOCALS)) {
+    const opt = document.createElement('option');
+    opt.value = k; opt.textContent = k;
+    lensSel.appendChild(opt);
+  }
+  lensSel.value = state.lensKey;
+
+  document.getElementById('focal').value = state.focal;
+  document.getElementById('confusion-size').value = (state.confusionMm * 1000).toFixed(1);
+  document.getElementById('image-width').value = state.imageWidthPx;
+}
+
+// ---------------------------------------------------------------------------
+// Évènements
+// ---------------------------------------------------------------------------
+function setConfusionFromMode() {
+  if (state.confusionMode !== 'CUSTOM') {
+    state.confusionMm = confusionSizeMm(state.confusionMode);
+    document.getElementById('confusion-size').value = (state.confusionMm * 1000).toFixed(1);
+  }
+}
+
+function applyMinFocusClamp() {
+  state.focusDistance = clamp(state.focusDistance, minimumFocusDistanceM(), DOF_MAX_M);
+}
+
+function wireEvents() {
+  document.getElementById('sensor').addEventListener('change', (e) => {
+    state.sensorKey = e.target.value;
+    setConfusionFromMode();
+    applyMinFocusClamp();
+    renderAll(); saveSettings();
+  });
+
+  document.getElementById('lens').addEventListener('change', (e) => {
+    state.lensKey = e.target.value;
+    const lensKeys = Object.keys(LENS_FOCALS);
+    const lastKey = lensKeys[lensKeys.length - 1];
+    if (state.lensKey !== lastKey) {
+      state.focal = LENS_FOCALS[state.lensKey];
+      document.getElementById('focal').value = state.focal;
+    }
+    applyMinFocusClamp();
+    renderAll(); saveSettings();
+  });
+
+  document.getElementById('focal').addEventListener('input', (e) => {
+    const v = parseFloat(e.target.value);
+    if (!isFinite(v)) return;
+    state.focal = clamp(v, 1.0, 1000.0);
+    // Si la focale ne correspond à aucun préréglage, passer sur "Personnalisé..."
+    const lensKeys = Object.keys(LENS_FOCALS);
+    const match = lensKeys.find(k => k !== lensKeys[lensKeys.length - 1] && LENS_FOCALS[k] === state.focal);
+    if (!match) {
+      state.lensKey = lensKeys[lensKeys.length - 1];
+      document.getElementById('lens').value = state.lensKey;
+    }
+    applyMinFocusClamp();
+    renderAll(); saveSettings();
+  });
+
+  document.getElementById('confusion').addEventListener('change', (e) => {
+    const idx = e.target.selectedIndex;
+    state.confusionMode = ['DIGITAL', 'ZEISS', 'CUSTOM'][idx];
+    if (state.confusionMode !== 'CUSTOM') {
+      state.confusionMm = confusionSizeMm(state.confusionMode);
+      document.getElementById('confusion-size').value = (state.confusionMm * 1000).toFixed(1);
+    }
+    applyMinFocusClamp();
+    renderAll(); saveSettings();
+  });
+
+  document.getElementById('confusion-size').addEventListener('input', (e) => {
+    const v = parseFloat(e.target.value);
+    if (!isFinite(v)) return;
+    state.confusionMm = clamp(v, 0.1, 100) / 1000;
+    state.confusionMode = 'CUSTOM';
+    document.getElementById('confusion').selectedIndex = 2;
+    applyMinFocusClamp();
+    renderAll(); saveSettings();
+  });
+
+  document.getElementById('image-width').addEventListener('input', (e) => {
+    const v = parseInt(e.target.value, 10);
+    if (!isFinite(v)) return;
+    state.imageWidthPx = clamp(v, 10, 10000);
+    updatePixelReadout(); saveSettings();
+  });
+
+  // Sliders SVG : DOF
+  setupSvgSlider('dof-svg', (relX, width) => {
+    const dWidth = width - 30 - 2;
+    const stepSize = dWidth / 999;
+    const clickX = relX - 15 + stepSize / 2;
+    const pc = clamp(clickX / dWidth, 0, 1);
+    state.focusDistance = clamp(scaleOut(pc), minimumFocusDistanceM(), DOF_MAX_M);
+    renderDof();
+    renderFov();
+    updateDofReadout();
+    updatePixelReadout();
+    updateFocusReadout();
+    updateFovReadouts();
+    saveSettings();
+  });
+
+  // Sliders SVG : F-number
+  setupSvgSlider('fn-svg', (relX, width) => {
+    const dWidth = width - 30 - 2;
+    const steps = F_DISPLAY.length;
+    const stepSize = dWidth / (steps - 1);
+    const clickX = relX - 15 + stepSize / 2;
+    const pc = clamp(clickX / dWidth, 0, 1);
+    state.fIndex = clamp(Math.round(pc * (steps - 1)), 0, steps - 1);
+    renderFnumber();
+    renderDof();              // l’ouverture modifie la DOF
+    updateDofReadout();
+    updateFnumberReadout();
+    saveSettings();
+  });
+
+  // Re-rendu sur redimensionnement (les barres sont sensibles à la largeur)
+  let resizeTimer = null;
+  window.addEventListener('resize', () => {
+    clearTimeout(resizeTimer);
+    resizeTimer = setTimeout(() => { renderDof(); renderFnumber(); }, 50);
+  });
+}
+
+function setupSvgSlider(id, onPos) {
+  const svg = document.getElementById(id);
+  let dragging = false;
+  function localX(ev) {
+    const rect = svg.getBoundingClientRect();
+    const clientX = (ev.touches && ev.touches[0]) ? ev.touches[0].clientX : ev.clientX;
+    return { x: clientX - rect.left, w: rect.width };
+  }
+  function update(ev) {
+    const { x, w } = localX(ev);
+    onPos(x, w);
+  }
+  svg.addEventListener('mousedown', (e) => { dragging = true; update(e); e.preventDefault(); });
+  window.addEventListener('mousemove', (e) => { if (dragging) update(e); });
+  window.addEventListener('mouseup', () => { dragging = false; });
+  svg.addEventListener('touchstart', (e) => { dragging = true; update(e); e.preventDefault(); }, { passive: false });
+  window.addEventListener('touchmove', (e) => { if (dragging) update(e); }, { passive: false });
+  window.addEventListener('touchend', () => { dragging = false; });
+}
+
+// ---------------------------------------------------------------------------
+// Démarrage
+// ---------------------------------------------------------------------------
+loadSettings();
+// S’assure que les clés sauvegardées existent toujours
+if (!(state.sensorKey in SENSOR_SIZES)) state.sensorKey = "1/2\" industriel (8 × 10 mm)";
+if (!(state.lensKey in LENS_FOCALS)) state.lensKey = "Personnalisé...";
+if (state.confusionMode !== 'CUSTOM') {
+  state.confusionMm = confusionSizeMm(state.confusionMode);
+}
+applyMinFocusClamp();
+
+initSelects();
+wireEvents();
+// Le premier rendu doit attendre que le SVG ait une largeur (layout)
+requestAnimationFrame(renderAll);
+</script>
+</body>
+</html>
